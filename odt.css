@@ -1,0 +1,24 @@
+div.emptyline {
+	margin-bottom: 0.0em;
+}
+
+div#pageDiv {
+	zIndex: 1;
+	position: absolute;
+}
+
+div#prevPage {
+	left: 0;
+	position: fixed;
+	opacity: 0.6;
+	text-align: center;
+	zIndex: 3;
+}
+
+div#nextPage {
+	right: 0;
+	position: fixed;
+	opacity: 0.6;
+	text-align: center;
+	zIndex: 3;
+}
