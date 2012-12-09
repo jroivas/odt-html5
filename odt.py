@@ -7,17 +7,36 @@ class ODTPage:
     def getPage(self, name="test.odt"):
         odt = ODT(name)
         #res = odt.read()
-        return self.getHeader()+self.getBody(odt)+self.getFooter()
+        pages = odt.pageCount()
+        styles = self.getStyles(pages, 1)
+        res = self.getHeader(styles) + self.getBody(odt) + self.getFooter()
+        return res
 
-    def getHeader(self):
+    def getStyles(self, pagecnt, curpage=1):
+        res = "<style>\n"
+        i = 1
+        while i <= pagecnt:
+            res += "div.pageNum%s {\n" % (i)
+            if i != curpage:
+                res += "\tdisplay: none;\n"
+            res += "\tzIndex: 1;\n"
+            res += "\tposition: absolute;\n"
+            res += "}\n"
+            i += 1
+        res += "</style>\n"
+        return res
+            
+
+    def getHeader(self, extra=""):
         return """<html>
         <head>
             <title>ODT</title>
             <link rel="stylesheet" type="text/css" title="styles" href="odt.css"/>
             <script type="text/javascript" src="jquery.min.js"></script>
             <script type="text/javascript" src="odt.js"></script>
+            %s
         </head>
-        """
+        """ % (extra)
         #<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
 
     def getBody(self, odt):
@@ -25,16 +44,28 @@ class ODTPage:
         if not res:
             cntx = "<p>Invalid file</p>"
         else:
-            data = odt.parseStyles()
-            odt.parseTextProperties()
-            cntx = "<p>Ok: %s</p>" % (data)
+            #data = odt.parseStyles()
+            #cntx = "<p>styles: %s</p>" % (data)
+            #cntx = "%s" % odt.pageCount()
+            tmp = odt.parseContent()
+            cntx = """<!-- PREV --><div id='prevPage' onClick='toPrevPage();'>&lt;&lt;</div>
+        <input type='hidden' id='pagenum' name='pagenum' value='1'></input>
+        <input type='hidden' id='pagecnt' name='pagecnt' value='%s'></input>
+
+        <!-- START --><div id='pageDiv'>
+        <div id='pageNum1' class='pageNum1'>
+        %s
+        </div>
+        <!-- END --></div>
+
+        <!-- NEXT --><div id='nextPage' onClick='toNextPage();'>&gt;&gt;</div>
+        """ % (odt.pageCount(), tmp)
+
         return """
         <body>
-            <h1>ODT-HTML5</h1>
-
             %s
         </body>
-"""%(cntx)
+""" % (cntx)
 
     def getFooter(self):
         return """</html>"""
@@ -42,11 +73,18 @@ class ODTPage:
 class ODT:
     def __init__(self, name):
         self._name = name
+        self._page = 1
         self._zip = None
         self._styles = {}
         self._styles_xml = None
         self._content_xml = None
         self._stylename = None
+        self._read = False
+        self._read = self.read()
+        self._pagecnt = None
+        self._lists = {}
+        self._hlevels = {}
+        self._localtargets = {}
 
     def open(self):
         if not os.path.isfile(self._name):
@@ -78,7 +116,10 @@ class ODT:
         for child in root:
             if child.tag == name:
                 res.append(child)
-            res += self.findElement(child, name)
+            tmp = self.findElement(child, name)
+            for item in tmp:
+                if item not in res:
+                    res.append(item)
         return res
 
     def parseStyleTag(self, styles):
@@ -92,19 +133,28 @@ class ODT:
             pstyle = self.getAttrib(style, "parent-style-name")
             if pstyle is not None and res is not None:
                 res[self._stylename]["parent"] = pstyle
+            text_prop = self.parseTextProperties(style)
+            if text_prop:
+                res[self._stylename]["text-prop"] = text_prop
+
+            para_prop = self.parseParagraphProperties(style)
+            if para_prop:
+                res[self._stylename]["para-prop"] = para_prop
         return res
 
-    def filterAttributes(self, datas, keep):
+    def filterAttributes(self, props, keep):
         res = []
         for prop in props:
             style = {}
             for val in prop.attrib:
-                if val in valid_text_attrs:
+                if val in keep:
                     style[val] = prop.attrib[val]
 
             if style:
                 res.append(style)
 
+        if len(res) == 1:
+            return res[0]
         return res
 
     def parseTextPropertyTag(self, props):
@@ -112,13 +162,13 @@ class ODT:
             "font-style", "text-underline-style", "text-underline-color",
             "text-overline-style", "text-line-through-style" ]
 
-        return filterAttributes(props, valid_text_attrs)
+        return self.filterAttributes(props, valid_text_attrs)
         
     def parseParagraphPropertyTag(self, props):
         valid_para_attrs = [ "break-before", "text-align", "color", "background-color",
             "text-indent", "margin-left", "margin-right", "margin-top", "margin-bottom" ]
         
-        return filterAttributes(props, valid_para_attrs)
+        return self.filterAttributes(props, valid_para_attrs)
 
     def getAttrib(self, tag, name):
         for attrib in tag.attrib:
@@ -139,38 +189,266 @@ class ODT:
                     tmp[attr] = el.attrib[attr]
             el.attrib = tmp
 
-    def parseXML(self):
+    def parseStyleXML(self):
         if self._styles_xml == None:
             return None
-        self.__root = etree.fromstring(self._styles_xml)
-        self.stripNamespace(self.__root)
+        self._style_root = etree.fromstring(self._styles_xml)
+        self.stripNamespace(self._style_root)
 
-    def parseParagraphProperties(self):
-        tags = self.findElement(self.__root, "paragraph-properties")
-        self.parseParagraphPropertyTag(tags)
+    def parseContentXML(self):
+        if self._content_xml == None:
+            return None
+        self._content_root = etree.fromstring(self._content_xml)
+        self.stripNamespace(self._content_root)
 
-    def parseTextProperties(self):
-        tags = self.findElement(self.__root, "text-properties")
+    def parseXML(self):
+        self.parseStyleXML()
+        self.parseContentXML()
+
+    def parseParagraphProperties(self, item=None):
+        if item is None:
+            item = self._style_root
+        tags = self.findElement(item, "paragraph-properties")
+        return self.parseParagraphPropertyTag(tags)
+
+    def parseTextProperties(self, item=None):
+        if item is None:
+            item = self._style_root
+        tags = self.findElement(item, "text-properties")
         return self.parseTextPropertyTag(tags)
 
     def parseStyles(self):
-        styles = self.findElement(self.__root, "style")
+        styles = self.findElement(self._style_root, "style")
         return self.parseStyleTag(styles)
 
-        #res += "<p> %s </p>\n"%self.findElement(root, "style")
-        #res += "<p> %s </p>\n"%self.findElement(root, "text-properties")
-        #res += "<p> %s </p>\n"%self.findElement(root, "paragraph-properties")
-        #parser = etree.XMLParser()
-        #parser.feed(self._styles)
-        #parser.close()
+    def getAttrib(self, item, attr):
+        if not attr in item.attrib:
+            return None
+        return item.attrib[attr]
+
+    def parseContent(self):
+        return self.parseTag(self._content_root)
+        res = ""
+        for item in self._content_root.getiterator():
+            res += "<p>%s %s</p>\n" % (item.tag, item.text)
+        return res
+
+    def parseStyle(self, style):
+        res = ""
+        extra = False
+        if "text-prop" in style:
+            for key in style["text-prop"]:
+                if extra:
+                    res += " "
+                extra = True
+                if key == "text-underline-style":
+                    res += "text-decoration: underline;" 
+                elif key == "text-overline-style":
+                    res += "text-decoration: overline;" 
+                elif key == "text-line-through-style":
+                    res += "text-decoration: line-through;" 
+                else:
+                    res += "%s: %s;" % (key, style["text-prop"][key].strip()) 
+        if "para-prop" in style:
+            for key in style["para-prop"]:
+                if extra:
+                    res += " "
+                extra = True
+                if key == "text-indent":
+                    res += "padding-left: %s;" % (style["para-prop"][key].strip())
+                elif key == "break-before":
+                    pass
+                else:
+                    res += "%s: %s;" % (key, style["para-prop"][key].strip()) 
+        return res
+
+    def isBreak(self, style):
+        if style is None:
+            return False
+        if not "para-prop" in style:
+            return False
+        if "break-before" in style["para-prop"] and style["para-prop"]["break-before"] == "page":
+            return True
+        return False
+
+    def isInternalLink(self, link):
+        if link[0] == "#":
+            return True
+        return False
+
+    def parseInternalLink(self, link):
+        if link[0] != "#":
+            return link
+        data = link[1:].split("|")
+        return data[0]
+
+    def parseLink(self, link):
+        intlink = self.parseInternalLink(link)
+        return intlink
+
+    def setupLevel(self, level):
+        nlevel = int(level)
+        if not level in self._hlevels:
+            self._hlevels[level] = 0
+        self._hlevels[level] += 1
+        tmp = nlevel + 1 
+        while tmp <= 6:
+            self._hlevels["%s" % tmp] = 0
+            tmp += 1
+
+    def levelLabel(self, level):
+        lab = ""
+        tmp = 1
+        while tmp < 6:
+            levnum = self._hlevels["%s" % tmp]
+            if levnum == 0:
+                break
+            lab += "%s." % (levnum)
+            tmp += 1
+        return lab
+
+    def solveStyle(self, item):
+        style = self.getAttrib(item, "style-name")
+        styledata = self.getStyle(style)
+        extra = ""
+        if styledata is not None:
+            parsedstyle = self.parseStyle(styledata)
+            if parsedstyle:
+                extra = ' style="%s"' % (parsedstyle)
+        return extra
+
+    def handleTail(self, item):
+        if item.tail is not None:
+            return item.tail
+        return ""
+
+    def parseTag(self, item):
+        #styles = self.findElement(self._root, "style")
+        #return self.parseStyleTag(styles)
+        listname = None
+        res = ""
+        res_close = ""
+        #for item in self._content_root.getiterator():
+
+        style = self.getAttrib(item, "style-name")
+        styledata = self.getStyle(style)
+        if self.isBreak(styledata):
+            self._page += 1
+            res += "</div>\n"
+            res += '<div class="pageNum%s" id="pageNum%s">\n' % (self._page, self._page)
+
+        if item.tag == "list-style":
+            listname = self.getAttrib(item, "name")
+            if not listname in self._lists:
+                self._lists[listname] = {}
+        elif item.tag == "list-level-style-bullet":
+            bullet = self.getAttrib(item, "name")
+            if listname is not None:
+                self._lists[listname]["bullet"] = bullet
+        elif item.tag == "style":
+            stylename = self.getAttrib(item, "name")
+            parentname = self.getAttrib(item, "parent-style-name")
+        elif item.tag == "list":
+            style = self.getAttrib(item, "style-name")
+            if style is not None and style in self._lists and "bullet" in self._lists[style]:
+                res += "<ul>"
+                res_close += "</ul>" + self.handleTail(item)
+            else:
+                res += "<ol>"
+                res_close += "</ol>" + self.handleTail(item)
+        elif item.tag == "a":
+            href = self.getAttrib(item, "href")
+            if href is not None:
+                extra = self.solveStyle(item)
+                res += '<a href="%s"%s>' % (self.parseLink(href), extra)
+                res_close += "</a>" + self.handleTail(item)
+        elif item.tag == "tab":
+            res += "&nbsp;&nbsp;"
+        elif item.tag == "span":
+            style = self.solveStyle(item)
+            res += "<span%s>" % (style)
+            res_close += "</span>" + self.handleTail(item)
+        elif item.tag == "h":
+            level = self.getAttrib(item, "outline-level")
+            if level is None:
+                level = "1"
+            style = self.solveStyle(item)
+
+            self.setupLevel(level)
+            lab = self.levelLabel(level)
+            self._localtargets[lab] = self.page()
+            if item.text is not None:
+                lab += item.text
+                self._localtargets[lab] = self.page()
+            res += '<h%s%s><a name="%s"></a>' % (level, style, lab)
+            res_close += "</h%s>\n" % (level) + self.handleTail(item)
+            
+        elif item.tag == "p":
+            extra = self.solveStyle(item)
+            if item.text is None or item.text == "":
+                res += "<div class='emptyline'>&nbsp;</div>\n" + self.handleTail(item)
+            else:
+                res += "<div%s>" % (extra)
+                res_close += "</div>\n" + self.handleTail(item)
+
+        if item.text is not None:
+            res += item.text
+
+        for ch in item:
+            res += self.parseTag(ch)
+
+        res += res_close
+
+        return res
+
+    def getStyle(self, name):
+        if name in self._styles:
+            return self._styles[name]
+        return None
+
+    def page(self):
+        return self._page
+
+    def pageCount(self):
+        if self._pagecnt is not None:
+            return self._pagecnt
+
+        pagecnt = 1
+        for item in self._content_root.getiterator():
+            if item.tag == "style":
+                extra = self.parseStyleTag([item])
+                self._styles.update(extra)
+                
+            if "style-name" in item.attrib:
+                st = self.getStyle(item.attrib["style-name"])
+                if st is not None and "para-prop" in st:
+                    #if "break-before" in st["para-prop"] and st["para-prop"]["break-before"] == "page":
+                    if self.isBreak(st):
+                        pagecnt += 1
+                #print " %s" % item.attrib["style-name"]
+                #print " %s" % self.getStyle(item.attrib["style-name"])
+        """
+        for item in self._content_root:
+            if item.tag == "body":
+                print "%s" % item
+                for subitem in item:
+                    print " %s" % subitem
+                    for subsubitem in subitem:
+                        print "  %s" % subsubitem
+        """
+        self._pagecnt = pagecnt
+        return pagecnt
 
     def read(self):
+        if self._read:
+            return True
         if not self.open():
             return False
 
         self._styles_xml = self.extract("styles.xml")
         self._content_xml = self.extract("content.xml")
         self.parseXML()
+        self._styles = self.parseStyles()
 
         self.close()
         return True
