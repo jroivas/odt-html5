@@ -4,12 +4,16 @@ import xml.etree.ElementTree as etree
 import re
 
 class ODTPage:
-    def getPage(self, name="test.odt"):
+    def getPage(self, name="test.odt", page=1):
         odt = ODT(name)
         #res = odt.read()
         pages = odt.pageCount()
-        styles = self.getStyles(pages, 1)
-        res = self.getHeader(styles) + self.getBody(odt) + self.getFooter()
+        if page > pages:
+            page = pages
+        if page < 1:
+            page = 1
+        styles = self.getStyles(pages, page)
+        res = self.getHeader(styles) + self.getBody(odt, page) + self.getFooter()
         return res
 
     def getStyles(self, pagecnt, curpage=1):
@@ -39,7 +43,7 @@ class ODTPage:
         """ % (extra)
         #<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
 
-    def getBody(self, odt):
+    def getBody(self, odt, page):
         res = odt.read()
         if not res:
             cntx = "<p>Invalid file</p>"
@@ -49,7 +53,7 @@ class ODTPage:
             #cntx = "%s" % odt.pageCount()
             tmp = odt.parseContent()
             cntx = """<!-- PREV --><div id='prevPage' onClick='toPrevPage();'>&lt;&lt;</div>
-        <input type='hidden' id='pagenum' name='pagenum' value='1'></input>
+        <input type='hidden' id='pagenum' name='pagenum' value='%s'></input>
         <input type='hidden' id='pagecnt' name='pagecnt' value='%s'></input>
 
         <!-- START --><div id='pageDiv'>
@@ -59,7 +63,7 @@ class ODTPage:
         <!-- END --></div>
 
         <!-- NEXT --><div id='nextPage' onClick='toNextPage();'>&gt;&gt;</div>
-        """ % (odt.pageCount(), tmp)
+        """ % (page, odt.pageCount(), tmp)
 
         return """
         <body>
@@ -308,11 +312,27 @@ class ODT:
         return lab
 
     def solveStyle(self, item):
+        combined = {}
         style = self.getAttrib(item, "style-name")
         styledata = self.getStyle(style)
+            
         extra = ""
         if styledata is not None:
-            parsedstyle = self.parseStyle(styledata)
+            cstyledata = styledata
+
+            # Solve style stack
+            stack = [styledata]
+            while cstyledata is not None and "parent" in cstyledata:
+                parstyle = cstyledata["parent"]
+                pardata = self.getStyle(parstyle)
+                if pardata is not None:
+                    stack.append(pardata)
+                cstyledata = pardata
+            solved_style = {}
+            while stack:
+                solved_style.update(stack.pop())
+
+            parsedstyle = self.parseStyle(solved_style)
             if parsedstyle:
                 extra = ' style="%s"' % (parsedstyle)
         return extra
@@ -323,12 +343,9 @@ class ODT:
         return ""
 
     def parseTag(self, item):
-        #styles = self.findElement(self._root, "style")
-        #return self.parseStyleTag(styles)
         listname = None
         res = ""
         res_close = ""
-        #for item in self._content_root.getiterator():
 
         style = self.getAttrib(item, "style-name")
         styledata = self.getStyle(style)
@@ -422,20 +439,9 @@ class ODT:
             if "style-name" in item.attrib:
                 st = self.getStyle(item.attrib["style-name"])
                 if st is not None and "para-prop" in st:
-                    #if "break-before" in st["para-prop"] and st["para-prop"]["break-before"] == "page":
                     if self.isBreak(st):
                         pagecnt += 1
-                #print " %s" % item.attrib["style-name"]
-                #print " %s" % self.getStyle(item.attrib["style-name"])
-        """
-        for item in self._content_root:
-            if item.tag == "body":
-                print "%s" % item
-                for subitem in item:
-                    print " %s" % subitem
-                    for subsubitem in subitem:
-                        print "  %s" % subsubitem
-        """
+
         self._pagecnt = pagecnt
         return pagecnt
 

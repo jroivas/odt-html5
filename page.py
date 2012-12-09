@@ -40,9 +40,9 @@ def parsePage(environ, response):
     if action == "odt.css" or action == "odt.js" or action == "jquery.min.js":
         return fileAction(environ, response, action)
 
-    return defaultAction(environ, response)
+    return defaultAction(environ, response, action, rest)
 
-def defaultAction(environ, response):
+def defaultAction(environ, response, action, rest):
     if environ!=None:
         try:
             request_body_size = int(environ.get('CONTENT_LENGTH', 0))
@@ -58,8 +58,15 @@ def defaultAction(environ, response):
     request_body = environ['wsgi.input'].read(request_body_size)
     posts = parse_qs(request_body)
 
+    page = 1
+    if action[:5] == "page=":
+        try:
+            page = int(action[5:])
+        except ValueError:
+            page = 1
+            
     #logout = posts.get('logout', [])
-    resp = ODTPage().getPage()
+    resp = ODTPage().getPage(page=page)
     pars = environ['PATH_INFO']
 
     extra = []
