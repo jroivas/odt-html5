@@ -89,6 +89,7 @@ class ODT:
         self._lists = {}
         self._hlevels = {}
         self._localtargets = {}
+        self._framedata = None
 
     def open(self):
         if not os.path.isfile(self._name):
@@ -379,6 +380,40 @@ class ODT:
                 extra = self.solveStyle(item)
                 res += '<a href="%s"%s>' % (self.parseLink(href), extra)
                 res_close += "</a>" + self.handleTail(item)
+        elif item.tag == "frame":
+            frame = {}
+            frame["style"] = self.solveStyle(item)
+            frame["anchor"] = self.getAttrib(item, "anchor")
+            frame["width"] = self.getAttrib(item, "width")
+            frame["height"] = self.getAttrib(item, "height")
+            self._framedata = frame
+        elif item.tag == "image":
+            href = self.getAttrib(item, "href")
+            if href is not None:
+                if self._framedata is not None:
+                    img_styles = ""
+                    p_styles = ""
+                    if self._framedata["width"] is not None:
+                        img_styles += "width: %s;" % (self._framedata["width"])
+                    _anchor = self._framedata["anchor"]
+                    if self._framedata["height"] is not None:
+                        img_styles += "height: %s;" % (self._framedata["height"])
+                        if _anchor == "paragraph":
+                            p_styles += "margin-bottom: -%s;" % (self._framedata["height"])
+                    imgextra = ""
+                    if img_styles:
+                        imgextra = ' style="%s"' % (img_styles)
+                    extra = ""
+                    if p_styles:
+                        extra = ' style="%s"' % (p_styles)
+
+                    src = "/img/%s" % (href)
+                    imgdata = '<img src="%s"%s></img>' % (src, imgextra)
+                    if _anchor == "as-is":
+                        res += '<span%s>%s</span>' % (extra, imgdata)
+                    else:
+                        res += '<div%s>%s</div>' % (extra, imgdata)
+
         elif item.tag == "tab":
             res += "&nbsp;&nbsp;"
         elif item.tag == "span":
@@ -407,6 +442,7 @@ class ODT:
             else:
                 res += "<div%s>" % (extra)
                 res_close += "</div>\n" + self.handleTail(item)
+            
 
         if item.text is not None:
             res += item.text
@@ -415,6 +451,8 @@ class ODT:
             res += self.parseTag(ch)
 
         res += res_close
+        if item.tag == "frame":
+            self._framedata = None
 
         return res
 

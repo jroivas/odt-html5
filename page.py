@@ -4,6 +4,7 @@ sys.path.append(os.path.dirname(__file__))
 os.chdir(os.path.dirname(__file__))
 
 from odt import ODTPage
+from odt import ODT
 from cgi import parse_qs, escape
 
 def getAction(s):
@@ -33,17 +34,47 @@ def fileAction(environ, response, filename):
         )
     return [data]
 
+def odtImageAction(environ, response, odt_name, rest):
+    odt = ODT(odt_name)
+    invalid = True
+    if odt.open():
+        fname = os.sep.join(rest)
+        data = odt.extract(fname)
+
+        fname = fname.lower()
+        if ".png" in fname:
+            mime = "image/png"
+            invalid = False
+        elif ".jpeg" in fname or ".jpg" in fname:
+            mime = "image/jpeg"
+            invalid = False
+
+    if invalid:
+        data = "Not found"
+        mime = "text/plain"
+
+    response('200 OK',
+        [('Content-Type', mime) ]
+        )
+    return [data]
+
 def parsePage(environ, response):
     extra = ""
     pars = environ['PATH_INFO']
+
     (action, rest) = getAction(pars)
     if action == "odt.css" or action == "odt.js" or action == "jquery.min.js":
         return fileAction(environ, response, action)
 
-    return defaultAction(environ, response, action, rest)
+    # TODO: solve the ODT name some proper way
+    odt_name = "test.odt"
+    if action == "img":
+        return odtImageAction(environ, response, odt_name, rest)
 
-def defaultAction(environ, response, action, rest):
-    if environ!=None:
+    return defaultAction(environ, response, action, rest, odt_name)
+
+def defaultAction(environ, response, action, rest, odt_name):
+    if environ is not None:
         try:
             request_body_size = int(environ.get('CONTENT_LENGTH', 0))
         except ValueError:
@@ -66,7 +97,7 @@ def defaultAction(environ, response, action, rest):
             page = 1
             
     #logout = posts.get('logout', [])
-    resp = ODTPage().getPage(page=page)
+    resp = ODTPage().getPage(page=page, name=odt_name)
     pars = environ['PATH_INFO']
 
     extra = []
