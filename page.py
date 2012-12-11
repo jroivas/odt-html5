@@ -37,23 +37,25 @@ def fileAction(environ, response, filename):
 def odtImageAction(environ, response, odt_name, rest):
     odt = ODT(odt_name)
     invalid = True
+    code = '200 OK'
     if odt.open():
         fname = os.sep.join(rest)
         data = odt.extract(fname)
 
         fname = fname.lower()
-        if ".png" in fname:
-            mime = "image/png"
+        if '.png' in fname:
+            mime = 'image/png'
             invalid = False
-        elif ".jpeg" in fname or ".jpg" in fname:
-            mime = "image/jpeg"
+        elif '.jpeg' in fname or '.jpg' in fname:
+            mime = 'image/jpeg'
             invalid = False
 
-    if invalid:
-        data = "Not found"
-        mime = "text/plain"
+    if invalid or data is None:
+        data = 'Not found'
+        mime = 'text/plain'
+        code = '404 Not found'
 
-    response('200 OK',
+    response(code,
         [('Content-Type', mime) ]
         )
     return [data]

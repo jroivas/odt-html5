@@ -108,7 +108,10 @@ class ODT:
     def extract(self, file):
         if self._zip == None:
             return None
-        return self._zip.read(file)
+        try:
+            return self._zip.read(file)
+        except KeyError:
+            return None
 
     def cleanTag(self, tag):
         return re.sub("{[^}]+}","",tag).strip()
