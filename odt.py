@@ -2,6 +2,7 @@ import zipfile
 import os
 import xml.etree.ElementTree as etree
 import re
+import copy
 
 class ODTPage:
     def getPage(self, name="test.odt", page=1):
@@ -90,6 +91,9 @@ class ODT:
         self._hlevels = {}
         self._localtargets = {}
         self._framedata = None
+        self._listname = None
+        self._tab = None
+        self._stylestack = []
 
     def open(self):
         if not os.path.isfile(self._name):
@@ -137,6 +141,8 @@ class ODT:
             if tmp is not None:
                 res[tmp] = {}
                 self._stylename = tmp
+            elif self._stylename not in res:
+                res[self._stylename] = {}
 
             pstyle = self.getAttrib(style, "parent-style-name")
             if pstyle is not None and res is not None:
@@ -268,6 +274,9 @@ class ODT:
                     pass
                 else:
                     res += "%s: %s;" % (key, style["para-prop"][key].strip()) 
+        if "tab" in style:
+            if style["tab"]["pos"] is not None:
+                res += "margin-left: %s;" % (style["tab"]["pos"])
         return res
 
     def isBreak(self, style):
@@ -315,28 +324,37 @@ class ODT:
             tmp += 1
         return lab
 
-    def solveStyle(self, item):
+    def solveStyle(self, item, style=None):
         combined = {}
-        style = self.getAttrib(item, "style-name")
+        if style is None:
+            style = self.getAttrib(item, "style-name")
         styledata = self.getStyle(style)
             
         extra = ""
         if styledata is not None:
-            cstyledata = styledata
+            cstyledata = copy.deepcopy(styledata)
 
             # Solve style stack
-            stack = [styledata]
+            stack = [cstyledata]
+            pstack = []
             while cstyledata is not None and "parent" in cstyledata:
                 parstyle = cstyledata["parent"]
+                #if parstyle in pstack:
+                #    break
+                pstack.append(parstyle)
                 pardata = self.getStyle(parstyle)
                 if pardata is not None:
-                    stack.append(pardata)
+                    stack.append(copy.deepcopy(pardata))
                 cstyledata = pardata
+
             solved_style = {}
             while stack:
-                solved_style.update(stack.pop())
+                data = stack.pop()
+                tmp = {}
+                tmp[style] = data
+                self.mergeStyles(tmp, solved_style)
 
-            parsedstyle = self.parseStyle(solved_style)
+            parsedstyle = self.parseStyle(solved_style[style])
             if parsedstyle:
                 extra = ' style="%s"' % (parsedstyle)
         return extra
@@ -345,6 +363,28 @@ class ODT:
         if item.tail is not None:
             return item.tail
         return ""
+
+    def mergeStyles(self, updater, dest=None):
+        if not updater:
+            return
+        if dest is None:
+            dest = self._styles
+
+        for k in updater:
+            if not k in dest:
+                dest[k] = updater[k]
+            else:
+                if "text-prop" in updater[k]:
+                    if not "text-prop" in dest[k]:
+                        dest[k]["text-prop"] = {}
+                    dest[k]["text-prop"].update(updater[k]["text-prop"])
+                if "para-prop" in updater[k]:
+                    if not "para-prop" in dest[k]:
+                        dest[k]["para-prop"] = {}
+                    dest[k]["para-prop"].update(updater[k]["para-prop"])
+                if "parent" in updater[k]:
+                    dest[k]["parent"] = updater[k]["parent"]
+                
 
     def parseTag(self, item):
         listname = None
@@ -360,23 +400,32 @@ class ODT:
 
         if item.tag == "list-style":
             listname = self.getAttrib(item, "name")
-            if not listname in self._lists:
-                self._lists[listname] = {}
+            if not listname in self._styles:
+                self._styles[listname] = {}
+            self._listname = listname
         elif item.tag == "list-level-style-bullet":
-            bullet = self.getAttrib(item, "name")
-            if listname is not None:
-                self._lists[listname]["bullet"] = bullet
+            bullet = self.getAttrib(item, "bullet-char")
+            if self._listname is not None:
+                self._styles[self._listname]["bullet"] = bullet
+        elif item.tag == "paragraph-properties" or item.tag == "text-properties":
+            extra = self.parseStyleTag([item])
+            self.mergeStyles(extra)
         elif item.tag == "style":
-            stylename = self.getAttrib(item, "name")
-            parentname = self.getAttrib(item, "parent-style-name")
+            self._stylename = self.getAttrib(item, "name")
+            self._stylestack.append(self._stylename)
+            self._parentname = self.getAttrib(item, "parent-style-name")
         elif item.tag == "list":
-            style = self.getAttrib(item, "style-name")
-            if style is not None and style in self._lists and "bullet" in self._lists[style]:
+            stylename = self.getAttrib(item, "style-name")
+            style = self.getStyle(stylename)
+            if style is not None and "bullet" in style:
                 res += "<ul>"
                 res_close += "</ul>" + self.handleTail(item)
             else:
                 res += "<ol>"
                 res_close += "</ol>" + self.handleTail(item)
+        elif item.tag == "list-item":
+            res += "<li>"
+            res_close += "</li>"
         elif item.tag == "a":
             href = self.getAttrib(item, "href")
             if href is not None:
@@ -416,9 +465,23 @@ class ODT:
                         res += '<span%s>%s</span>' % (extra, imgdata)
                     else:
                         res += '<div%s>%s</div>' % (extra, imgdata)
-
+        elif item.tag == "tab-stop":
+            tab = {}
+            tab["pos"] = self.getAttrib(item, "position")
+            tab["type"] = self.getAttrib(item, "type")
+            tab["leader-style"] = self.getAttrib(item, "leader-style")
+            tab["leader-text"] = self.getAttrib(item, "leader-text")
+            self._tab = tab
+            if self._stylename is not None:
+                self._styles[self._stylename]["tab"] = tab
+            #print "TAB STOP", tab, self._stylename
         elif item.tag == "tab":
-            res += "&nbsp;&nbsp;"
+            style = self.solveStyle(item, self._stylename)
+            #if self._tab is not None and "pos" in self._tab:
+                #print style, self._tab
+                #style += ' style="margin-left: %s"' % (self._tab["pos"])
+            print "TAB", style, self._stylename
+            res += "<span%s>&nbsp;&nbsp;</span>" % (style) + self.handleTail(item)
         elif item.tag == "span":
             style = self.solveStyle(item)
             res += "<span%s>" % (style)
@@ -437,13 +500,17 @@ class ODT:
                 self._localtargets[lab] = self.page()
             res += '<h%s%s><a name="%s"></a>' % (level, style, lab)
             res_close += "</h%s>\n" % (level) + self.handleTail(item)
-            
         elif item.tag == "p":
             extra = self.solveStyle(item)
+            snam = self.getAttrib(item, "style-name")
+            if snam is not None:
+                pah = ' class="%s"' % (snam)
+            else:
+                pah = ''
             if item.text is None or item.text == "":
                 res += "<div class='emptyline'>&nbsp;</div>\n" + self.handleTail(item)
             else:
-                res += "<div%s>" % (extra)
+                res += "<div%s%s>" % (extra,pah)
                 res_close += "</div>\n" + self.handleTail(item)
             
 
@@ -456,6 +523,15 @@ class ODT:
         res += res_close
         if item.tag == "frame":
             self._framedata = None
+        elif item.tag == "style":
+            print self._stylestack
+            self._stylestack.pop()
+            if self._stylestack:
+                self._stylename = self._stylestack[-1]
+            else:
+                self._stylename = None
+        #elif item.tag == "tab-stop":
+        #    self._tab = None
 
         return res
 
@@ -475,7 +551,7 @@ class ODT:
         for item in self._content_root.getiterator():
             if item.tag == "style":
                 extra = self.parseStyleTag([item])
-                self._styles.update(extra)
+                self.mergeStyles(extra)
                 
             if "style-name" in item.attrib:
                 st = self.getStyle(item.attrib["style-name"])
