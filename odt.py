@@ -94,6 +94,10 @@ class ODT:
         self._listname = None
         self._tab = None
         self._stylestack = []
+        self._imageframe1 = ''
+        self._imageframe1_end = ''
+        self._imageframe2 = ''
+        self._imageframe2_end = ''
 
     def open(self):
         if not os.path.isfile(self._name):
@@ -301,7 +305,11 @@ class ODT:
 
     def parseLink(self, link):
         intlink = self.parseInternalLink(link)
-        return intlink
+        if intlink in self._localtargets:
+            page = 'page=%s' % (self._localtargets[intlink]) + '#'
+        else:
+            page = ''
+        return page+intlink
 
     def setupLevel(self, level):
         nlevel = int(level)
@@ -419,10 +427,10 @@ class ODT:
             style = self.getStyle(stylename)
             if style is not None and "bullet" in style:
                 res += "<ul>"
-                res_close += "</ul>" + self.handleTail(item)
+                res_close += "</ul>"
             else:
                 res += "<ol>"
-                res_close += "</ol>" + self.handleTail(item)
+                res_close += "</ol>"
         elif item.tag == "list-item":
             res += "<li>"
             res_close += "</li>"
@@ -431,7 +439,7 @@ class ODT:
             if href is not None:
                 extra = self.solveStyle(item)
                 res += '<a href="%s"%s>' % (self.parseLink(href), extra)
-                res_close += "</a>" + self.handleTail(item)
+                res_close += "</a>"
         elif item.tag == "frame":
             frame = {}
             frame["style"] = self.solveStyle(item)
@@ -439,6 +447,12 @@ class ODT:
             frame["width"] = self.getAttrib(item, "width")
             frame["height"] = self.getAttrib(item, "height")
             self._framedata = frame
+        elif item.tag == "imageframe":
+            style = self.solveStyle(item)
+            self._imageframe1 = '<span%s>' % (extra)
+            self._imageframe1_end = '</span>'
+            self._imageframe2 = '<div%s>' % (extra)
+            self._imageframe2_end = '</div>'
         elif item.tag == "image":
             href = self.getAttrib(item, "href")
             if href is not None:
@@ -460,11 +474,22 @@ class ODT:
                         extra = ' style="%s"' % (p_styles)
 
                     src = "/img/%s" % (href)
-                    imgdata = '<img src="%s"%s></img>' % (src, imgextra)
+                    imgdata = '<img src="%s"%s>' % (src, imgextra)
+                    imgdata_end = '</img>'
                     if _anchor == "as-is":
-                        res += '<span%s>%s</span>' % (extra, imgdata)
+                        res += self._imageframe1
+                        res += imgdata
+                        res_close += imgdata_end
+                        res_close += self._imageframe1_end
                     else:
-                        res += '<div%s>%s</div>' % (extra, imgdata)
+                        res += self._imageframe2
+                        res += imgdata
+                        res_close += imgdata_end
+                        res_close += self._imageframe2_end
+                    #if _anchor == "as-is":
+                    #    res += '<span%s>%s</span>' % (extra, imgdata)
+                    #else:
+                    #    res += '<div%s>%s</div>' % (extra, imgdata)
         elif item.tag == "tab-stop":
             tab = {}
             tab["pos"] = self.getAttrib(item, "position")
@@ -474,18 +499,13 @@ class ODT:
             self._tab = tab
             if self._stylename is not None:
                 self._styles[self._stylename]["tab"] = tab
-            #print "TAB STOP", tab, self._stylename
         elif item.tag == "tab":
             style = self.solveStyle(item, self._stylename)
-            #if self._tab is not None and "pos" in self._tab:
-                #print style, self._tab
-                #style += ' style="margin-left: %s"' % (self._tab["pos"])
-            print "TAB", style, self._stylename
-            res += "<span%s>&nbsp;&nbsp;</span>" % (style) + self.handleTail(item)
+            res += "<span%s>&nbsp;&nbsp;</span>" % (style)
         elif item.tag == "span":
             style = self.solveStyle(item)
             res += "<span%s>" % (style)
-            res_close += "</span>" + self.handleTail(item)
+            res_close += "</span>"
         elif item.tag == "h":
             level = self.getAttrib(item, "outline-level")
             if level is None:
@@ -499,7 +519,7 @@ class ODT:
                 lab += item.text
                 self._localtargets[lab] = self.page()
             res += '<h%s%s><a name="%s"></a>' % (level, style, lab)
-            res_close += "</h%s>\n" % (level) + self.handleTail(item)
+            res_close += "</h%s>\n" % (level)
         elif item.tag == "p":
             extra = self.solveStyle(item)
             snam = self.getAttrib(item, "style-name")
@@ -508,10 +528,10 @@ class ODT:
             else:
                 pah = ''
             if item.text is None or item.text == "":
-                res += "<div class='emptyline'>&nbsp;</div>\n" + self.handleTail(item)
+                res += "<div class='emptyline'>&nbsp;</div>\n"
             else:
                 res += "<div%s%s>" % (extra,pah)
-                res_close += "</div>\n" + self.handleTail(item)
+                res_close += "</div>\n"
             
 
         if item.text is not None:
@@ -521,15 +541,21 @@ class ODT:
             res += self.parseTag(ch)
 
         res += res_close
+        if res is not None:
+            res += self.handleTail(item)
         if item.tag == "frame":
             self._framedata = None
         elif item.tag == "style":
-            print self._stylestack
             self._stylestack.pop()
             if self._stylestack:
                 self._stylename = self._stylestack[-1]
             else:
                 self._stylename = None
+        elif item.tag == "imageframe":
+            self._imageframe1 = ''
+            self._imageframe1_end = ''
+            self._imageframe2 = ''
+            self._imageframe2_end = ''
         #elif item.tag == "tab-stop":
         #    self._tab = None
 
