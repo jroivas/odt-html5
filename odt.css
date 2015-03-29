@@ -32,6 +32,9 @@ div.emptyline {
 div#pageDiv {
     zIndex: 1;
     position: absolute;
+    top: 0;
+    width: 80%;
+    max-width: 80%;
 }
 
 div#prevPage {
@@ -41,6 +44,11 @@ div#prevPage {
     text-align: center;
     background-color: white;
     zIndex: 3;
+    min-height: 100%;
+    min-width: 10%;
+    width: 10%;
+    margin-top: 3em;
+    line-height: 100px;
 }
 
 div#nextPage {
@@ -50,6 +58,63 @@ div#nextPage {
     text-align: center;
     background-color: white;
     zIndex: 3;
+    min-height: 100%;
+    min-width: 10%;
+    width: 10%;
+    margin-top: 3em;
+    line-height: 100px;
+}
+
+div#top_left {
+    position: fixed;
+    top: 0;
+    height: 3em;
+    width: 10em;
+    left: 0;
+    width: 10%;
+    min-width: 10%;
+    line-height: 3em;
+    zIndex: 3;
+    opacity: 0.6;
+    text-align: center;
+    background-color: white;
+}
+
+div#top_right {
+    position: fixed;
+    top: 0;
+    height: 3em;
+    width: 10em;
+    right: 0;
+    width: 10%;
+    min-width: 10%;
+    line-height: 3em;
+    zIndex: 3;
+    opacity: 0.6;
+    text-align: center;
+    background-color: white;
+}
+
+div.page a {
+  font-family: "times", "Times New Roman", serif;
+  font-weight: bold;
+}
+
+div.page a:link {
+    color: white;
+    background-color: transparent;
+}
+
+div.page a:visited {
+    color: white;
+    background-color: transparent;
+}
+
+div.page a:active, a:hover {
+    color: white;
+    background-color: transparent;
+    opacity: 0.3;
+    text-decoration: none;
 }
 
 div.page {
@@ -57,4 +122,13 @@ div.page {
     margin-right: auto;
     width: 400px;
     padding: 1em;
+    color: white;
+}
+
+h2 {
+    font-family: Arial, Helvetica, sans-serif
+}
+
+div {
+    font-family: Verdana, Geneva, sans-serif
 }

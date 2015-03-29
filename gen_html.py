@@ -6,6 +6,7 @@ from odt import ODTPage
 from odt import ODT
 
 page=1
+pagename='sivu'
 
 def img(odt, fname):
     invalid = True
@@ -26,25 +27,36 @@ def img(odt, fname):
     return [data]
 
 #odt = ODT(sys.argv[1])
-resp = ODTPage(sys.argv[1])
-pages = resp.pages()
+odt = ODTPage(sys.argv[1], pagename=pagename)
+pages = odt.pages()
 print pages
-#img(resp.odt)
-while page < pages:
-    #print "Page: %s" % page
-    data = resp.getPage(page=page)
-    #print data
-    with open('page_%s.html' % page, 'w') as fd:
-        fd.write(data.encode('utf-8'))
-        #fd.write(data.encode('utf-8').replace('\\n', '\n'))
+title = 'Ymmyrk&auml;inen'
+predata = ''
+got_title = False
+while page <= pages:
+    if not got_title:
+        prev_page = 'index.html'
+    else:
+        prev_page = got_title
+    (page_title, content, data) = odt.getPage(page=page, title=title, prev_page=prev_page)
+    if got_title or page_title:
+        with open('%s_%s.html' % (pagename, page), 'w') as fd:
+            fd.write(data.encode('utf-8'))
+        got_title = True
+    else:
+        predata += content
+
     page += 1
+
+with open('index.html', 'w') as fd:
+    fd.write(odt.genIndex(title, predata).encode('utf-8'))
 
 try:
     os.makedirs('img')
 except:
     pass
-for the_img in resp.odt.images:
-    img_data = img(resp.odt, the_img)
+for the_img in odt.odt.images:
+    img_data = img(odt.odt, the_img)
     dd = os.path.dirname(the_img)
     try:
         os.makedirs('img/%s' % dd)
@@ -52,6 +64,7 @@ for the_img in resp.odt.images:
         pass
     with open('img/%s' % the_img, 'w+') as fd:
         fd.write(''.join(img_data))
+
     #print img
 #if odt.open():
 #    data = odt.extract(fname)

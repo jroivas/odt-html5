@@ -5,17 +5,24 @@ import re
 import copy
 
 class ODTPage:
-    def __init__(self, name, odt=None):
+    def __init__(self, name, odt=None, pagename='page'):
+        self.pagename = pagename
         if odt is None:
             self.odt = ODT(name)
         else:
             self.odt = odt
 
+        self.index = []
+
     def pages(self):
         return self.odt.pageCount()
 
-    def getPage(self, name="test.odt", page=1):
-        #res = odt.read()
+    def getTitle(self):
+        for i in self.odt.titles:
+            return (i, self.odt.titles[i][0])
+        return (0, '')
+
+    def getPage(self, name="test.odt", page=1, title="ODT", prev_page=True):
         res = ''
         self.odt.reset()
         pages = self.odt.pageCount()
@@ -24,9 +31,32 @@ class ODTPage:
         if page < 1:
             page = 1
         styles = self.getStyles(pages, page)
-        res = self.getHeader(styles) + self.getBody(self.odt, page) + self.getFooter()
-        #res = self.getBody(self.odt, page)
-        return res
+        content = self.getContent(self.odt, page)
+        body = self.getBody(self.odt, page, content, prev_page, title)
+        #print self.odt.titles
+        (level, page_title) = self.getTitle()
+        if page_title:
+            title += ' - ' + page_title
+            self.index.append((level, page, page_title))
+
+        head = self.getHeader(title, styles)
+        foot = self.getFooter()
+        return page_title, content, head + body + foot
+
+    def genIndex(self, title, extra):
+        res = '<body>\n'
+        res += extra
+        #res += '<h1>%s</h1>' % (title)
+        #res += '<div id="pageDiv" class="contents">\n'
+        res += '<div class="page">\n'
+        for level, page, target in self.index:
+            res += '<div>%s<a href="%s_%s.html">%s</a></div>\n' % ('&nbsp;' * 2 * int(level), self.pagename, page, target)
+        res += '</div>\n'
+        res += '</body>\n'
+
+        head = self.getHeader(title, '')
+        foot = self.getFooter()
+        return head + res + foot
 
     def getStyles(self, pagecnt, curpage=1):
         return ""
@@ -43,55 +73,75 @@ class ODTPage:
         res += "</style>\n"
         return res
 
-    def getHeader(self, extra=""):
+    def getHeader(self, title, extra=""):
         return """<html>
         <head>
-            <title>ODT</title>
+            <title>%s</title>
             <link rel="stylesheet" type="text/css" title="styles" href="odt.css"/>
             <meta charset="UTF-8">
             <script type="text/javascript" src="jquery.min.js"></script>
             <script type="text/javascript" src="odt.js"></script>
             %s
         </head>
-        """ % (extra)
+        """ % (title, extra)
         #<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
 
-    def getBody(self, odt, page):
+    def getContent(self, odt, page):
         res = odt.read()
         tmp = ''
         if not res:
-            cntx = "<p>Invalid file</p>"
-        else:
-            #data = odt.parseStyles()
-            #cntx = "<p>styles: %s</p>" % (data)
-            #cntx = "%s" % odt.pageCount()
-            tmp = odt.parseContent(page=page)
-            #cntx = """<!-- PREV --><div id='prevPage' onClick='toPrevPage();'>&lt;&lt;</div>
-            cntx = ""
-            if page > 1:
-                cntx += """<!-- PREV --><a href="page_%s.html"><div id='prevPage'>&lt;&lt;</div>""" % (page - 1)
+            return "<p>Invalid file</p>"
 
-            a = """
+        tmp = odt.parseContent(page=page)
+
+        a = """
         <!-- START --><div id='pageDiv'>
         <div id='pageNum1' class='pageNum1'>
         </div>
         """
 
-            cntx += """</a>
-        <!-- START --><div id='pageDiv'>
+        return """
+        <!-- START -->
+        <div class="page">
+            %s
+        </div>
+        <!-- END -->
+        """ % (''.join(tmp))
+
+    def getBody(self, odt, page, content, prev_page, title):
+        cntx = ''
+        #cntx += '<div style="height: 30px; width: 100%; background-color: \'red\';"><a href="index.html">Index</a></div>\n'
+        cntx += '<a href="index.html"><div id="top_left">%s</div></a>\n' % (title)
+        #cntx += '<div id="top_right">&nbsp;</div>\n'
+        if prev_page and page > 1:
+            if prev_page == True:
+                prev_page = "%s_%s.html" % (self.pagename, page - 1)
+            cntx += """
+        <!-- PREV --><a href="%s">
+        <div id='prevPage'>
+        &lt;&lt;
+        </div></a>
+        """ % (prev_page)
+
+        cntx += """
         <input type='hidden' id='pagenum' name='pagenum' value='%s'></input>
         <input type='hidden' id='pagecnt' name='pagecnt' value='%s'></input>
+        """ % (page, odt.pageCount())
 
-    <div class="page">
-        %s
-    </div>
-        <!-- END --></div>
-        """ % (page, odt.pageCount(), ''.join(tmp))
+        cntx += "<div id='pageDiv'>\n"
 
-        if page < odt.pageCount() - 1:
+        cntx += content
+        #cntx += self.getContent(odt, page)
+
+        cntx += "</div>\n"
+        if page < odt.pageCount():
             cntx += """
-        <!-- NEXT --><a href="page_%s.html"><div id='nextPage'>&gt;&gt;</div></a>
-        """ % (page + 1)
+        <!-- NEXT --><a href="%s_%s.html">
+        <div id='nextPage'>
+        &gt;&gt;
+        </div>
+        </a>
+        """ % (self.pagename, page + 1)
 
         return """
         <body>
@@ -126,9 +176,11 @@ class ODT:
         self._imageframe2 = ''
         self._imageframe2_end = ''
         self.images = []
+        self.titles = {}
         #self._pagedata = {}
 
     def reset(self):
+        self.titles = {}
         self._page = 1
 
     def open(self):
@@ -278,10 +330,6 @@ class ODT:
 
     def parseContent(self, page=0):
         return self.parseTag(self._content_root, page=page),
-        res = ""
-        for item in self._content_root.getiterator():
-            res += "<p>%s %s</p>\n" % (item.tag, item.text)
-        return res
 
     def parseStyle(self, style):
         res = ""
@@ -428,7 +476,8 @@ class ODT:
     def parseTag(self, item, page=1):
         listname = None
         res = ""
-        res_close = ""
+        res_start = ''
+        res_close = ''
 
         style = self.getAttrib(item, "style-name")
         styledata = self.getStyle(style)
@@ -510,7 +559,7 @@ class ODT:
                             p_styles += "margin-bottom: -%s;" % (self._framedata["height"])
                     imgextra = ""
                     if img_styles:
-                        imgextra = ' style="%s"' % (img_styles)
+                        imgextra = ' style="%s;"' % (img_styles)
                     extra = ""
                     if p_styles:
                         extra = ' style="%s"' % (p_styles)
@@ -543,7 +592,7 @@ class ODT:
                 self._styles[self._stylename]["tab"] = tab
         elif item.tag == "tab":
             style = self.solveStyle(item, self._stylename)
-            res += "<span%s>&nbsp;&nbsp;</span>" % (style)
+            res += "<span%s>%s</span>" % (style, '&nbsp;' * 9)
         elif item.tag == "span":
             style = self.solveStyle(item)
             res += "<span%s>" % (style)
@@ -561,6 +610,10 @@ class ODT:
                 lab += item.text
                 self._localtargets[lab] = self.page()
             res += '<h%s%s><a name="%s"></a>' % (level, style, lab)
+            if level not in self.titles:
+                self.titles[level] = []
+            self.titles[level].append(item.text)
+
             res_close += "</h%s>\n" % (level)
         elif item.tag == "p":
             extra = self.solveStyle(item)
@@ -569,25 +622,33 @@ class ODT:
                 pah = ' class="%s"' % (snam)
             else:
                 pah = ''
-            if item.text is None or item.text == "":
-                res += "<div class='emptyline'>&nbsp;</div>\n"
-            else:
-                res += "<div%s%s>" % (extra,pah)
-                res_close += "</div>\n"
+            #if item.text is None or item.text == "":
+            #    res += "<div class='emptyline'>&nbsp;</div>\n"
+            #else:
+            res_start += "<div%s%s>" % (extra, pah)
+            res_close += "</div>\n"
 
-        tmp_f = ''
-        if item.text is not None:
-            res += item.text
-
+        subdata = ''
         for ch in item:
             tmp_b = self.parseTag(ch, page=page)
             if tmp_b:
-                res += tmp_b
+                subdata += tmp_b
+
+        tmp_f = ''
+        if item.tag == 'p' and not subdata and item.text is None:
+            res += "<div class='emptyline'>&nbsp;</div>\n"
+        else:
+            res += res_start
+            if item.text is not None:
+                res += item.text
+            res += subdata
+
             #if self._page == page:
             #    print self._page, page, tmp
             #res += '%s' % ''.join(tmp_b)
 
-        res += res_close
+            res += res_close
+
         if res is not None:
             res += self.handleTail(item)
         if item.tag == "frame":
