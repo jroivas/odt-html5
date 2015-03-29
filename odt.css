@@ -1,24 +1,60 @@
+body {
+    color: white;
+    background-color: black;
+}
+
+a {
+  font-family: "times", "Times New Roman", serif;
+  font-weight: bold;
+}
+
+a:link {
+    color: black;
+    background-color: transparent;
+}
+
+a:visited {
+    color: black;
+    background-color: transparent;
+}
+
+a:active, a:hover {
+    color: black;
+    background-color: transparent;
+    opacity: 0.3;
+    text-decoration: none;
+}
+
 div.emptyline {
-	margin-bottom: 0.0em;
+    margin-bottom: 0.0em;
 }
 
 div#pageDiv {
-	zIndex: 1;
-	position: absolute;
+    zIndex: 1;
+    position: absolute;
 }
 
 div#prevPage {
-	left: 0;
-	position: fixed;
-	opacity: 0.6;
-	text-align: center;
-	zIndex: 3;
+    left: 0;
+    position: fixed;
+    opacity: 0.6;
+    text-align: center;
+    background-color: white;
+    zIndex: 3;
 }
 
 div#nextPage {
-	right: 0;
-	position: fixed;
-	opacity: 0.6;
-	text-align: center;
-	zIndex: 3;
+    right: 0;
+    position: fixed;
+    opacity: 0.6;
+    text-align: center;
+    background-color: white;
+    zIndex: 3;
+}
+
+div.page {
+    margin-left: auto;
+    margin-right: auto;
+    width: 400px;
+    padding: 1em;
 }

@@ -29,6 +29,7 @@ class ODTPage:
         return res
 
     def getStyles(self, pagecnt, curpage=1):
+        return ""
         res = "<style>\n"
         i = 1
         while i <= pagecnt:
@@ -66,18 +67,31 @@ class ODTPage:
             #cntx = "%s" % odt.pageCount()
             tmp = odt.parseContent(page=page)
             #cntx = """<!-- PREV --><div id='prevPage' onClick='toPrevPage();'>&lt;&lt;</div>
-            cntx = """<!-- PREV --><a href="page_%s.html"><div id='prevPage'>&lt;&lt;</div></a>
+            cntx = ""
+            if page > 1:
+                cntx += """<!-- PREV --><a href="page_%s.html"><div id='prevPage'>&lt;&lt;</div>""" % (page - 1)
+
+            a = """
+        <!-- START --><div id='pageDiv'>
+        <div id='pageNum1' class='pageNum1'>
+        </div>
+        """
+
+            cntx += """</a>
+        <!-- START --><div id='pageDiv'>
         <input type='hidden' id='pagenum' name='pagenum' value='%s'></input>
         <input type='hidden' id='pagecnt' name='pagecnt' value='%s'></input>
 
-        <!-- START --><div id='pageDiv'>
-        <div id='pageNum1' class='pageNum1'>
+    <div class="page">
         %s
-        </div>
+    </div>
         <!-- END --></div>
+        """ % (page, odt.pageCount(), ''.join(tmp))
 
+        if page < odt.pageCount() - 1:
+            cntx += """
         <!-- NEXT --><a href="page_%s.html"><div id='nextPage'>&gt;&gt;</div></a>
-        """ % (page - 1, page, odt.pageCount(), ''.join(tmp), page + 1)
+        """ % (page + 1)
 
         return """
         <body>
@@ -417,11 +431,11 @@ class ODT:
         res_close = ""
 
         style = self.getAttrib(item, "style-name")
-        styledata = self.getStyle(style),
+        styledata = self.getStyle(style)
         if self.isBreak(styledata):
             self._page += 1
-            res += "</div>\n"
-            res += '<div class="pageNum%s" id="pageNum%s">\n' % (self._page, self._page)
+            #res += "</div>\n"
+            #res += '<div class="pageNum%s" id="pageNum%s">\n' % (self._page, self._page)
 
 
         if self._page != page:
@@ -430,6 +444,8 @@ class ODT:
             for ch in item:
                 tmp += self.parseTag(ch, page=page)
             return res + tmp
+        #else:
+            #res += "\n<!--begin-->\n<div>\n"
 
         if item.tag == "list-style":
             listname = self.getAttrib(item, "name")
@@ -571,7 +587,6 @@ class ODT:
             #    print self._page, page, tmp
             #res += '%s' % ''.join(tmp_b)
 
-        print "DAA", res,
         res += res_close
         if res is not None:
             res += self.handleTail(item)
@@ -595,6 +610,7 @@ class ODT:
         #if page not in self._pagedata:
         #    self._pagedata[page] = ''
         #self._pagedata[page] += res
+        #res += '\n<!--end-->\n</div>\n'
 
         return res
 
