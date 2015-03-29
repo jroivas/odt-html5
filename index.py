@@ -12,11 +12,10 @@ import threading
 def application(environ, response):
     return parsePage(environ, response)
 
-#print "here1"
 
 class palvelus(threading.Thread):
     _running = False
-        
+
     def run(self):
         self._ok = False
         if palvelus._running:

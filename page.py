@@ -97,7 +97,7 @@ def defaultAction(environ, response, action, rest, odt_name):
             page = int(action[5:])
         except ValueError:
             page = 1
-            
+
     #logout = posts.get('logout', [])
     resp = ODTPage().getPage(page=page, name=odt_name)
     pars = environ['PATH_INFO']
