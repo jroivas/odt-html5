@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 import sys
 import os
 
@@ -20,15 +21,12 @@ class palvelus(threading.Thread):
         self._ok = False
         if palvelus._running:
             return
-        #print "here 4",  os.getpid(), threading.currentThread()
         palvelus._running = True
         self._ok = True
         from wsgiref.simple_server import make_server
         httpd = make_server('', 8042, application)
         while self._ok and palvelus._running:
             httpd.handle_request()
-        #httpd.serve_forever()
-        #del httpd
 
     @classmethod
     def terminate(self):
