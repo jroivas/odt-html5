@@ -11,13 +11,13 @@ Just get the code and make temporary folder writable by web server. For example:
 
 ## Running
 
-Start by:
+Start by, default serving `test.odt` from current folder:
 
     python index.py
 
-Or script which makes it run even if it fails:
+To define ODT to server:
 
-    ./runner.sh
+    ODT_NAME=path/to/name.odt python index.py
 
 After successfull setup just upload test.odt to same folder and see the result.
 Default port is 8042, so try for example: http://localhost:8042

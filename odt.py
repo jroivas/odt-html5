@@ -5,7 +5,7 @@ import re
 import copy
 
 class ODTPage:
-    def __init__(self, name, odt=None, pagename='page'):
+    def __init__(self, name, odt=None, pagename='page', dynamic=False):
         self.pagename = pagename
         if odt is None:
             self.odt = ODT(name)
@@ -13,6 +13,7 @@ class ODTPage:
             self.odt = odt
 
         self.index = []
+        self.dynamic = dynamic
 
     def pages(self):
         return self.odt.pageCount()
@@ -22,7 +23,7 @@ class ODTPage:
             return (i, self.odt.titles[i][0])
         return (0, '')
 
-    def getPage(self, name="test.odt", page=1, title="ODT", prev_page=True):
+    def getPage(self, page=1, title="ODT", prev_page=True):
         res = ''
         self.odt.reset()
         pages = self.odt.pageCount()
@@ -38,8 +39,9 @@ class ODTPage:
             title += ' - ' + page_title
             self.index.append((level, page, page_title))
 
-        head = self.getHeader(title, styles)
+        head = '<!-- AAA --> ' + self.getHeader(title, styles) + '<!-- BBB -->'
         foot = self.getFooter()
+        foot = ""
         return page_title, content, head + body + foot
 
     def genIndex(self, title, extra):
@@ -91,12 +93,6 @@ class ODTPage:
 
         tmp = odt.parseContent(page=page)
 
-        a = """
-        <!-- START --><div id='pageDiv'>
-        <div id='pageNum1' class='pageNum1'>
-        </div>
-        """
-
         return """
         <!-- START -->
         <div class="page">
@@ -112,7 +108,10 @@ class ODTPage:
         #cntx += '<div id="top_right">&nbsp;</div>\n'
         if prev_page and page > 1:
             if prev_page == True:
-                prev_page = "%s_%s.html" % (self.pagename, page - 1)
+                if self.dynamic:
+                    prev_page = "?page=" % (page - 1)
+                else:
+                    prev_page = "%s_%s.html" % (self.pagename, page - 1)
             cntx += """
         <!-- PREV --><a href="%s">
         <div id='prevPage'>
@@ -132,7 +131,16 @@ class ODTPage:
 
         cntx += "</div>\n"
         if page < odt.pageCount():
-            cntx += """
+            if self.dynamic:
+                cntx += """
+        <!-- NEXT --><a href="?page=%s">
+        <div id='nextPage'>
+        &gt;&gt;
+        </div>
+        </a>
+        """ % (page + 1)
+            else:
+                cntx += """
         <!-- NEXT --><a href="%s_%s.html">
         <div id='nextPage'>
         &gt;&gt;

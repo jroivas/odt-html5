@@ -69,7 +69,7 @@ def parsePage(environ, response):
         return fileAction(environ, response, action)
 
     # TODO: solve the ODT name some proper way
-    odt_name = "test.odt"
+    odt_name = environ.get('ODT_NAME', "test.odt")
     if action == "img":
         return odtImageAction(environ, response, odt_name, rest)
 
@@ -96,11 +96,11 @@ def defaultAction(environ, response, action, rest, odt_name):
         except ValueError:
             page = 1
 
-    resp = ODTPage().getPage(page=page, name=odt_name)
+    resp = ODTPage(name=odt_name, dynamic=True).getPage(page=page)
     pars = environ['PATH_INFO']
 
     extra = []
     response('200 OK',
         [('Content-Type', 'text/html') ] + extra
         )
-    return [resp]
+    return resp[2]
