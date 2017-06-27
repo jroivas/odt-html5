@@ -14,23 +14,23 @@ def application(environ, response):
     return parsePage(environ, response)
 
 
-class palvelus(threading.Thread):
+class serving(threading.Thread):
     _running = False
 
     def run(self):
         self._ok = False
-        if palvelus._running:
+        if serving._running:
             return
-        palvelus._running = True
+        serving._running = True
         self._ok = True
         from wsgiref.simple_server import make_server
         httpd = make_server('', 8042, application)
-        while self._ok and palvelus._running:
+        while self._ok and serving._running:
             httpd.handle_request()
 
     @classmethod
     def terminate(self):
-        palvelus._running = False
+        serving._running = False
         self._ok = False
 
     @classmethod
@@ -39,7 +39,7 @@ class palvelus(threading.Thread):
 
 if __name__=='__main__':
     monitor.start()
-    serve = palvelus()
+    serve = serving()
     monitor.setServing(serve)
     serve.start()
     serve.join()

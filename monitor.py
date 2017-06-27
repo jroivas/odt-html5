@@ -26,16 +26,10 @@ def _restart(path):
     print >> sys.stderr, '%s Triggering process restart.' % prefix
     import index
     import threading
-    #index.palvelus.terminate()
-    #index.palvelus.terminate()
-    #cur = threading.currentThread()
     global _serving
     cur = _serving
-    #cur.__class__ = index.palvelus
     if cur is not None:
         cur.terminate()
-    #usleep(1000)
-    #os.kill(os.getpid(), signal.SIGINT)
 
 
 def _modified(path):

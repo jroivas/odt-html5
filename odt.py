@@ -33,7 +33,6 @@ class ODTPage:
         styles = self.getStyles(pages, page)
         content = self.getContent(self.odt, page)
         body = self.getBody(self.odt, page, content, prev_page, title)
-        #print self.odt.titles
         (level, page_title) = self.getTitle()
         if page_title:
             title += ' - ' + page_title
@@ -46,8 +45,6 @@ class ODTPage:
     def genIndex(self, title, extra):
         res = '<body>\n'
         res += extra
-        #res += '<h1>%s</h1>' % (title)
-        #res += '<div id="pageDiv" class="contents">\n'
         res += '<div class="page">\n'
         for level, page, target in self.index:
             res += '<div>%s<a href="%s_%s.html">%s</a></div>\n' % ('&nbsp;' * 2 * int(level), self.pagename, page, target)

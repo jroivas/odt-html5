@@ -86,8 +86,6 @@ def defaultAction(environ, response, action, rest, odt_name):
         except TypeError:
             request_body_size = 0
 
-        #gets = parse_qs(environ['QUERY_STRING'])
-
     request_body = environ['wsgi.input'].read(request_body_size)
     posts = parse_qs(request_body)
 
@@ -98,7 +96,6 @@ def defaultAction(environ, response, action, rest, odt_name):
         except ValueError:
             page = 1
 
-    #logout = posts.get('logout', [])
     resp = ODTPage().getPage(page=page, name=odt_name)
     pars = environ['PATH_INFO']
 
