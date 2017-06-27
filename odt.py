@@ -183,6 +183,7 @@ class ODT:
         self.images = []
         self.titles = {}
         #self._pagedata = {}
+        self.tabs = []
 
     def reset(self):
         self.titles = {}
@@ -595,9 +596,11 @@ class ODT:
             self._tab = tab
             if self._stylename is not None:
                 self._styles[self._stylename]["tab"] = tab
+            self.tabs.append(tab)
         elif item.tag == "tab":
             style = self.solveStyle(item, self._stylename)
             res += "<span%s>%s</span>" % (style, '&nbsp;' * 9)
+            #res += "<tab%s/>%s" % (style, '')
         elif item.tag == "span":
             style = self.solveStyle(item)
             res += "<span%s>" % (style)

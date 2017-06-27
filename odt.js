@@ -5,7 +5,7 @@ function initPage(divider)
         $("div#pageDiv").css({
             "width": width / divider * (divider - 2.2),
             "height": $(document).height(),
-            "left": width / divider,
+            "left": width / divider * 1.6,
             "margin-right": width / divider,
         });
     }
@@ -13,7 +13,7 @@ function initPage(divider)
     function navCss()
     {
         return {
-            "width": width / divider,
+            /*"width": width / divider,*/
             "height": height,
             "padding-top": height / 2,
         }
@@ -29,7 +29,9 @@ function initPage(divider)
 
     width = $(window).width();
     height = $(window).height();
+    /*
     initPageDiv();
+    */
     initNav($("div#prevPage"));
     initNav($("div#nextPage"));
 }

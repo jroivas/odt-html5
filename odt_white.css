@@ -33,8 +33,9 @@ div#pageDiv {
     zIndex: 1;
     position: absolute;
     top: 0;
-    width: 80%;
-    max-width: 80%;
+    margin-left: 10%;
+    width: 78%;
+    max-width: 78%;
 }
 
 div#prevPage {
@@ -79,7 +80,8 @@ div#top_left {
     zIndex: 3;
     opacity: 0.6;
     text-align: center;
-    background-color: white;
+    color: white;
+    background-color: black;
 }
 
 div#top_right {
@@ -121,9 +123,8 @@ div.page a:active, a:hover {
 
 div.page {
     color: black;
-    margin-left: auto;
-    margin-right: auto;
-    width: 400px;
+    margin-left: 12%;
+    margin-right: 12%;
     padding: 1em;
 }
 

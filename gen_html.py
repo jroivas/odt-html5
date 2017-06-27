@@ -8,7 +8,7 @@ from odt import ODT
 
 
 class HTMLGenerator:
-    def __init__(self, page=1, pagename='page', title='Title', index=None):
+    def __init__(self, odtfile, page=1, pagename='page', title='Title', index=None):
         self.page = page
         self.pagename = pagename
         self.title = title
@@ -16,7 +16,7 @@ class HTMLGenerator:
         self.gen_index = index is not None
         if not self.gen_index:
             self.index = "%s_1" % self.pagename
-        self.odt = None
+        self.odt = ODTPage(odtfile, pagename=self.pagename, indexname=self.index)
 
     def img(self, fname):
         invalid = True
@@ -34,10 +34,9 @@ class HTMLGenerator:
         if invalid or data is None:
             data = ''
 
-        return [data]
+        return data
 
-    def generateHTML(self, odtfile):
-        self.odt = ODTPage(odtfile, pagename=self.pagename, indexname=self.index)
+    def generateHTML(self):
         pages = self.odt.pages()
         print pages
         predata = ''
@@ -73,7 +72,7 @@ class HTMLGenerator:
             except:
                 pass
             with open('img/%s' % the_img, 'w+') as fd:
-                fd.write(''.join(img_data))
+                fd.write(img_data)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ODT-HTML5')
@@ -83,6 +82,6 @@ if __name__ == '__main__':
     parser.add_argument('filename', help='Input ODT')
     args = parser.parse_args()
 
-    g = HTMLGenerator(pagename=args.prefix, index=args.index, title=args.title)
+    g = HTMLGenerator(args.filename, pagename=args.prefix, index=args.index, title=args.title)
 
-    g.generateHTML(args.filename)
+    g.generateHTML()
