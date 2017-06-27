@@ -8,11 +8,14 @@ from odt import ODT
 
 
 class HTMLGenerator:
-    def __init__(self, page=1, pagename='page', title='Title', index='index'):
+    def __init__(self, page=1, pagename='page', title='Title', index='index', gen_index=False):
         self.page = page
         self.pagename = pagename
         self.title = title
         self.index = index
+        self.gen_index = gen_index
+        if not gen_index:
+            self.index = "%s_1" % self.pagename
         self.odt = None
 
     def img(self, fname):
@@ -40,12 +43,12 @@ class HTMLGenerator:
         predata = ''
         got_title = False
         while self.page <= pages:
-            if not got_title:
+            if self.gen_index and not got_title:
                 prev_page = '%s.html' % self.index
             else:
                 prev_page = got_title
             (page_title, content, data) = self.odt.getPage(page=self.page, title=self.title, prev_page=prev_page)
-            if got_title or page_title:
+            if not self.gen_index or got_title or page_title:
                 with open('%s_%s.html' % (self.pagename, self.page), 'w') as fd:
                     fd.write(data.encode('utf-8'))
                 got_title = True
@@ -54,8 +57,9 @@ class HTMLGenerator:
 
             self.page += 1
 
-        with open('%s.html' % self.index, 'w') as fd:
-            fd.write(self.odt.genIndex(self.title, predata).encode('utf-8'))
+        if self.gen_index:
+            with open('%s.html' % self.index, 'w') as fd:
+                fd.write(self.odt.genIndex(self.title, predata).encode('utf-8'))
 
         try:
             os.makedirs('img')
@@ -76,9 +80,10 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--title', default='Title', help='Title')
     parser.add_argument('-p', '--prefix', default='page', help='Page prefix')
     parser.add_argument('-i', '--index', default='index', help='Index name')
+    parser.add_argument('-g', '--gen-index', action='store_true', help='Generate index page')
     parser.add_argument('filename', help='Input ODT')
     args = parser.parse_args()
 
-    g = HTMLGenerator(pagename=args.prefix, index=args.index, title=args.title)
+    g = HTMLGenerator(pagename=args.prefix, index=args.index, title=args.title, gen_index=args.gen_index)
 
     g.generateHTML(args.filename)
