@@ -8,13 +8,13 @@ from odt import ODT
 
 
 class HTMLGenerator:
-    def __init__(self, page=1, pagename='page', title='Title', index='index', gen_index=False):
+    def __init__(self, page=1, pagename='page', title='Title', index=None):
         self.page = page
         self.pagename = pagename
         self.title = title
         self.index = index
-        self.gen_index = gen_index
-        if not gen_index:
+        self.gen_index = index is not None
+        if not self.gen_index:
             self.index = "%s_1" % self.pagename
         self.odt = None
 
@@ -79,11 +79,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ODT-HTML5')
     parser.add_argument('-t', '--title', default='Title', help='Title')
     parser.add_argument('-p', '--prefix', default='page', help='Page prefix')
-    parser.add_argument('-i', '--index', default='index', help='Index name')
-    parser.add_argument('-g', '--gen-index', action='store_true', help='Generate index page')
+    parser.add_argument('-i', '--index', default=None, help='Generate index with')
     parser.add_argument('filename', help='Input ODT')
     args = parser.parse_args()
 
-    g = HTMLGenerator(pagename=args.prefix, index=args.index, title=args.title, gen_index=args.gen_index)
+    g = HTMLGenerator(pagename=args.prefix, index=args.index, title=args.title)
 
     g.generateHTML(args.filename)
