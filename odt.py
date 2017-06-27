@@ -5,8 +5,9 @@ import re
 import copy
 
 class ODTPage:
-    def __init__(self, name, odt=None, pagename='page', dynamic=False):
+    def __init__(self, name, odt=None, pagename='page', indexname='index', dynamic=False):
         self.pagename = pagename
+        self.indexname = indexname
         if odt is None:
             self.odt = ODT(name)
         else:
@@ -103,8 +104,7 @@ class ODTPage:
 
     def getBody(self, odt, page, content, prev_page, title):
         cntx = ''
-        #cntx += '<div style="height: 30px; width: 100%; background-color: \'red\';"><a href="index.html">Index</a></div>\n'
-        cntx += '<a href="index.html"><div id="top_left">%s</div></a>\n' % (title)
+        cntx += '<a href="%s.html"><div id="top_left">%s</div></a>\n' % (self.indexname, title)
         #cntx += '<div id="top_right">&nbsp;</div>\n'
         if prev_page and page > 1:
             if prev_page == True:

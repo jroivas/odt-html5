@@ -1,66 +1,84 @@
 #!/usr/bin/env python
 
+import argparse
 import os
 import sys
 from odt import ODTPage
 from odt import ODT
 
-page=1
-pagename = 'page'
 
-def img(odt, fname):
-    invalid = True
-    if odt.open():
-        data = odt.extract(fname)
+class HTMLGenerator:
+    def __init__(self, page=1, pagename='page', title='Title', index='index'):
+        self.page = page
+        self.pagename = pagename
+        self.title = title
+        self.index = index
+        self.odt = None
 
-        fname = fname.lower()
-        if '.png' in fname:
-            mime = 'image/png'
-            invalid = False
-        elif '.jpeg' in fname or '.jpg' in fname:
-            mime = 'image/jpeg'
-            invalid = False
+    def img(self, fname):
+        invalid = True
+        if self.odt.odt.open():
+            data = self.odt.odt.extract(fname)
 
-    if invalid or data is None:
-        data = ''
+            fname = fname.lower()
+            if '.png' in fname:
+                mime = 'image/png'
+                invalid = False
+            elif '.jpeg' in fname or '.jpg' in fname:
+                mime = 'image/jpeg'
+                invalid = False
 
-    return [data]
+        if invalid or data is None:
+            data = ''
 
-if __name__ == '__main__':
-    odt = ODTPage(sys.argv[1], pagename=pagename)
-    pages = odt.pages()
-    print pages
-    title = 'Title'
-    predata = ''
-    got_title = False
-    while page <= pages:
-        if not got_title:
-            prev_page = 'index.html'
-        else:
-            prev_page = got_title
-        (page_title, content, data) = odt.getPage(page=page, title=title, prev_page=prev_page)
-        if got_title or page_title:
-            with open('%s_%s.html' % (pagename, page), 'w') as fd:
-                fd.write(data.encode('utf-8'))
-            got_title = True
-        else:
-            predata += content
+        return [data]
 
-        page += 1
+    def generateHTML(self, odtfile):
+        self.odt = ODTPage(odtfile, pagename=self.pagename, indexname=self.index)
+        pages = self.odt.pages()
+        print pages
+        predata = ''
+        got_title = False
+        while self.page <= pages:
+            if not got_title:
+                prev_page = '%s.html' % self.index
+            else:
+                prev_page = got_title
+            (page_title, content, data) = self.odt.getPage(page=self.page, title=self.title, prev_page=prev_page)
+            if got_title or page_title:
+                with open('%s_%s.html' % (self.pagename, self.page), 'w') as fd:
+                    fd.write(data.encode('utf-8'))
+                got_title = True
+            else:
+                predata += content
 
-    with open('index.html', 'w') as fd:
-        fd.write(odt.genIndex(title, predata).encode('utf-8'))
+            self.page += 1
 
-    try:
-        os.makedirs('img')
-    except:
-        pass
-    for the_img in odt.odt.images:
-        img_data = img(odt.odt, the_img)
-        dd = os.path.dirname(the_img)
+        with open('%s.html' % self.index, 'w') as fd:
+            fd.write(self.odt.genIndex(self.title, predata).encode('utf-8'))
+
         try:
-            os.makedirs('img/%s' % dd)
+            os.makedirs('img')
         except:
             pass
-        with open('img/%s' % the_img, 'w+') as fd:
-            fd.write(''.join(img_data))
+        for the_img in self.odt.odt.images:
+            img_data = self.img(the_img)
+            dd = os.path.dirname(the_img)
+            try:
+                os.makedirs('img/%s' % dd)
+            except:
+                pass
+            with open('img/%s' % the_img, 'w+') as fd:
+                fd.write(''.join(img_data))
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='ODT-HTML5')
+    parser.add_argument('-t', '--title', default='Title', help='Title')
+    parser.add_argument('-p', '--prefix', default='page', help='Page prefix')
+    parser.add_argument('-i', '--index', default='index', help='Index name')
+    parser.add_argument('filename', help='Input ODT')
+    args = parser.parse_args()
+
+    g = HTMLGenerator(pagename=args.prefix, index=args.index, title=args.title)
+
+    g.generateHTML(args.filename)
