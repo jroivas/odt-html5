@@ -5,7 +5,7 @@ import re
 import copy
 
 class ODTPage:
-    def __init__(self, name, odt=None, pagename='page', indexname='index', dynamic=False):
+    def __init__(self, name, odt=None, pagename='page', indexname='index'):
         self.pagename = pagename
         self.indexname = indexname
         if odt is None:
@@ -14,7 +14,6 @@ class ODTPage:
             self.odt = odt
 
         self.index = []
-        self.dynamic = dynamic
 
     def pages(self):
         return self.odt.pageCount()
@@ -24,25 +23,31 @@ class ODTPage:
             return (i, self.odt.titles[i][0])
         return (0, '')
 
-    def getPage(self, page=1, title="ODT", prev_page=True):
-        res = ''
-        self.odt.reset()
+    def solveCurrentPage(self, page):
         pages = self.odt.pageCount()
         if page > pages:
             page = pages
         if page < 1:
             page = 1
-        styles = self.getStyles(pages, page)
-        content = self.getContent(self.odt, page)
-        body = self.getBody(self.odt, page, content, prev_page, title)
+        return page
+
+    def handlePageTitle(self, page):
         (level, page_title) = self.getTitle()
         if page_title:
-            title += ' - ' + page_title
             self.index.append((level, page, page_title))
+        return page_title
 
-        head = '<!-- AAA --> ' + self.getHeader(title, styles) + '<!-- BBB -->'
+    def getPage(self, page=1, title="ODT", prev_page=True):
+        self.odt.reset()
+        styles = ''
+        page = self.solveCurrentPage(page)
+        content = self.getContent(self.odt, page)
+        body = self.getBody(self.odt, page, content, prev_page, title)
+        page_title = self.handlePageTitle(page)
+        title += ' - ' + page_title
+
+        head = self.getHeader(title, styles)
         foot = self.getFooter()
-        foot = ""
         return page_title, content, head + body + foot
 
     def genIndex(self, title, extra):
@@ -58,21 +63,6 @@ class ODTPage:
         foot = self.getFooter()
         return head + res + foot
 
-    def getStyles(self, pagecnt, curpage=1):
-        return ""
-        res = "<style>\n"
-        i = 1
-        while i <= pagecnt:
-            res += "div.pageNum%s {\n" % (i)
-            if i != curpage:
-                res += "\tdisplay: none;\n"
-            res += "\tzIndex: 1;\n"
-            res += "\tposition: absolute;\n"
-            res += "}\n"
-            i += 1
-        res += "</style>\n"
-        return res
-
     def getHeader(self, title, extra=""):
         return """<html>
         <head>
@@ -84,7 +74,6 @@ class ODTPage:
             %s
         </head>
         """ % (title, extra)
-        #<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
 
     def getContent(self, odt, page):
         res = odt.read()
@@ -105,13 +94,9 @@ class ODTPage:
     def getBody(self, odt, page, content, prev_page, title):
         cntx = ''
         cntx += '<a href="%s.html"><div id="top_left">%s</div></a>\n' % (self.indexname, title)
-        #cntx += '<div id="top_right">&nbsp;</div>\n'
         if prev_page and page > 1:
             if prev_page == True:
-                if self.dynamic:
-                    prev_page = "?page=" % (page - 1)
-                else:
-                    prev_page = "%s_%s.html" % (self.pagename, page - 1)
+                prev_page = "%s_%s.html" % (self.pagename, page - 1)
             cntx += """
         <!-- PREV --><a href="%s">
         <div id='prevPage'>
@@ -127,20 +112,10 @@ class ODTPage:
         cntx += "<div id='pageDiv'>\n"
 
         cntx += content
-        #cntx += self.getContent(odt, page)
 
         cntx += "</div>\n"
         if page < odt.pageCount():
-            if self.dynamic:
-                cntx += """
-        <!-- NEXT --><a href="?page=%s">
-        <div id='nextPage'>
-        &gt;&gt;
-        </div>
-        </a>
-        """ % (page + 1)
-            else:
-                cntx += """
+            cntx += """
         <!-- NEXT --><a href="%s_%s.html">
         <div id='nextPage'>
         &gt;&gt;
@@ -184,7 +159,6 @@ class ODT:
         self.images = []
         self.titles = {}
         #self._pagedata = {}
-        self.tabs = []
         self.rendered_width = 0
 
     def reset(self):
@@ -613,7 +587,6 @@ class ODT:
             self._tab = tab
             if self._stylename is not None:
                 self._styles[self._stylename]["tab"] = tab
-            self.tabs.append(tab)
         elif item.tag == "tab":
             s = self.tidyParentStyle(parentstyle)
             style = self.solveStyle(item, self._stylename)
