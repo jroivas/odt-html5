@@ -50,7 +50,7 @@ To see full options:
 
 To distribute your document as HTML, provide following:
 
- - All generated HTML files
+ - All generated `.html` files
  - `img` folder with extracted images
  - `odt.js`
  - `odt_black.css` OR `odt_white.css` renamed to `odt.css`
