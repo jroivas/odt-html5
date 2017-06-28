@@ -46,6 +46,17 @@ To see full options:
 
     python gen_html.py -h
 
+## Distributing
+
+To distribute your document as HTML, provide following:
+
+ - All generated HTML files
+ - `img` folder with extracted images
+ - `odt.js`
+ - `odt_black.css` OR `odt_white.css` renamed to `odt.css`
+ - `jquery.min.js`
+    * You may download it with script: `./download.sh`
+
 ## Known issues
 
  - Not fully compatible with [ODT spec](http://docs.oasis-open.org/office/v1.2/os/OpenDocument-v1.2-os-part1.html), only minimal set supported
