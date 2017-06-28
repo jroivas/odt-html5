@@ -76,7 +76,7 @@ class HTMLGenerator:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ODT-HTML5')
-    parser.add_argument('-t', '--title', default='Title', help='Title')
+    parser.add_argument('-t', '--title', default='', help='Title')
     parser.add_argument('-p', '--prefix', default='page', help='Page prefix')
     parser.add_argument('-i', '--index', default=None, help='Generate index with')
     parser.add_argument('filename', help='Input ODT')
