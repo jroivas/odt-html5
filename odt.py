@@ -9,7 +9,7 @@ class ODTPage:
         self.pagename = pagename
         self.indexname = indexname
         if odt is None:
-            self.odt = ODT(name)
+            self.odt = ODT(name, pagename=pagename)
         else:
             self.odt = odt
 
@@ -158,8 +158,9 @@ class ODTPage:
         return """</html>"""
 
 class ODT:
-    def __init__(self, name):
+    def __init__(self, name, pagename):
         self._name = name
+        self._pagename = pagename
         self._page = 1
         self._zip = None
         self._styles = {}
@@ -184,6 +185,7 @@ class ODT:
         self.titles = {}
         #self._pagedata = {}
         self.tabs = []
+        self.rendered_width = 0
 
     def reset(self):
         self.titles = {}
@@ -337,22 +339,27 @@ class ODT:
     def parseContent(self, page=0):
         return self.parseTag(self._content_root, page=page),
 
-    def parseStyle(self, style):
+    def parseStyle(self, style, item):
         res = ""
         extra = False
+        got_tab = False
+        if item == "tab" and "tab" in style:
+            if style["tab"]["pos"] is not None:
+                res += "margin-left: %s;" % (style["tab"]["pos"])
+                got_tab = True
         if "text-prop" in style:
             for key in style["text-prop"]:
                 if extra:
                     res += " "
                 extra = True
                 if key == "text-underline-style":
-                    res += "text-decoration: underline;" 
+                    res += "text-decoration: underline;"
                 elif key == "text-overline-style":
-                    res += "text-decoration: overline;" 
+                    res += "text-decoration: overline;"
                 elif key == "text-line-through-style":
-                    res += "text-decoration: line-through;" 
-                else:
-                    res += "%s: %s;" % (key, style["text-prop"][key].strip()) 
+                    res += "text-decoration: line-through;"
+                elif not got_tab or key != "margin-left":
+                    res += "%s: %s;" % (key, style["text-prop"][key].strip())
         if "para-prop" in style:
             for key in style["para-prop"]:
                 if extra:
@@ -362,11 +369,13 @@ class ODT:
                     res += "padding-left: %s;" % (style["para-prop"][key].strip())
                 elif key == "break-before":
                     pass
-                else:
-                    res += "%s: %s;" % (key, style["para-prop"][key].strip()) 
-        if "tab" in style:
+                elif not got_tab or key != "margin-left":
+                    res += "%s: %s;" % (key, style["para-prop"][key].strip())
+        """
+        if item == "tab" and "tab" in style:
             if style["tab"]["pos"] is not None:
                 res += "margin-left: %s;" % (style["tab"]["pos"])
+        """
         return res
 
     def isBreak(self, style):
@@ -392,7 +401,7 @@ class ODT:
     def parseLink(self, link):
         intlink = self.parseInternalLink(link)
         if intlink in self._localtargets:
-            page = 'page=%s' % (self._localtargets[intlink]) + '#'
+            page = '%s_%s.html' % (self._pagename, self._localtargets[intlink]) + '#'
         else:
             page = ''
         return page+intlink
@@ -448,7 +457,7 @@ class ODT:
                 tmp[style] = data
                 self.mergeStyles(tmp, solved_style)
 
-            parsedstyle = self.parseStyle(solved_style[style])
+            parsedstyle = self.parseStyle(solved_style[style], item.tag)
             if parsedstyle:
                 extra = ' style="%s"' % (parsedstyle)
         return extra
@@ -478,8 +487,16 @@ class ODT:
                     dest[k]["para-prop"].update(updater[k]["para-prop"])
                 if "parent" in updater[k]:
                     dest[k]["parent"] = updater[k]["parent"]
+                if "tab" in updater[k]:
+                    dest[k]["tab"] = updater[k]["tab"]
 
-    def parseTag(self, item, page=1):
+    def tidyParentStyle(self, parentstyle):
+        t = parentstyle.pop()
+        while t is None or not t or t == '':
+            t = parentstyle.pop()
+        return t
+
+    def parseTag(self, item, page=1, parentstyle=[]):
         listname = None
         res = ""
         res_start = ''
@@ -489,18 +506,13 @@ class ODT:
         styledata = self.getStyle(style)
         if self.isBreak(styledata):
             self._page += 1
-            #res += "</div>\n"
-            #res += '<div class="pageNum%s" id="pageNum%s">\n' % (self._page, self._page)
 
 
         if self._page != page:
-            #print self._page, page
             tmp = ''
             for ch in item:
-                tmp += self.parseTag(ch, page=page)
+                tmp += self.parseTag(ch, page=page, parentstyle=parentstyle[:] + [style])
             return res + tmp
-        #else:
-            #res += "\n<!--begin-->\n<div>\n"
 
         if item.tag == "list-style":
             listname = self.getAttrib(item, "name")
@@ -598,9 +610,11 @@ class ODT:
                 self._styles[self._stylename]["tab"] = tab
             self.tabs.append(tab)
         elif item.tag == "tab":
+            s = self.tidyParentStyle(parentstyle)
             style = self.solveStyle(item, self._stylename)
+            if s is not None:
+                style = self.solveStyle(item, s)
             res += "<span%s>%s</span>" % (style, '&nbsp;' * 9)
-            #res += "<tab%s/>%s" % (style, '')
         elif item.tag == "span":
             style = self.solveStyle(item)
             res += "<span%s>" % (style)
@@ -638,7 +652,7 @@ class ODT:
 
         subdata = ''
         for ch in item:
-            tmp_b = self.parseTag(ch, page=page)
+            tmp_b = self.parseTag(ch, page=page, parentstyle=parentstyle[:] + [style])
             if tmp_b:
                 subdata += tmp_b
 
