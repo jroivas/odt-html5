@@ -491,8 +491,10 @@ class ODT:
                     dest[k]["tab"] = updater[k]["tab"]
 
     def tidyParentStyle(self, parentstyle):
+        if not parentstyle:
+            return None
         t = parentstyle.pop()
-        while t is None or not t or t == '':
+        while parentstyle and (t is None or not t or t == ''):
             t = parentstyle.pop()
         return t
 
@@ -533,6 +535,9 @@ class ODT:
         elif item.tag == "list":
             stylename = self.getAttrib(item, "style-name")
             style = self.getStyle(stylename)
+            s = None
+            if stylename is None:
+                style = self.tidyParentStyle(parentstyle)
             if style is not None and "bullet" in style:
                 res += "<ul>"
                 res_close += "</ul>"
