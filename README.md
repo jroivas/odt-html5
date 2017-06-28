@@ -1,6 +1,6 @@
 # ODT to HTML5
 
-Convert [https://en.wikipedia.org/wiki/OpenDocument](ODT) text document to HTML5.
+Convert [ODT](https://en.wikipedia.org/wiki/OpenDocument) text document to HTML5.
 
 ## Fetching
 
