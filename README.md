@@ -45,3 +45,12 @@ This will generate `frontpage.html` and `p_2.html`, `p_3.html`, ...
 To see full options:
 
    python gen_html.py -h
+
+## Known issues
+
+ - Not fully compatible with [ODT spec](http://docs.oasis-open.org/office/v1.2/os/OpenDocument-v1.2-os-part1.html), only minimal set supported
+    * Feel free to improve
+ - Tabs does not work properly
+    * Mostly because of limitations of HTML
+    * Could however handle them slightly better
+ - Refactoring needed
