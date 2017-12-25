@@ -13,7 +13,7 @@ Just get the code and make temporary folder writable by web server. For example:
 
 To convert ODT to static HTML files do:
 
-   python gen_html.py file.odt
+    python gen_html.py file.odt
 
 Will generate HTML pages with default settings.
 
