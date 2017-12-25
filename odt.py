@@ -44,7 +44,8 @@ class ODTPage:
         content = self.getContent(self.odt, page)
         body = self.getBody(self.odt, page, content, prev_page, title)
         page_title = self.handlePageTitle(page)
-        title += ' - ' + page_title
+        if page_title is not None:
+            title += ' - ' + page_title
 
         head = self.getHeader(title, styles)
         foot = self.getFooter()
